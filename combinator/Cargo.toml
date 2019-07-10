@@ -1,13 +1,9 @@
 [package]
-name = "raftkv"
+name = "combinator"
 version = "0.1.0"
-authors = ["jzhang <zhangchunzhong@gmail.com>"]
+authors = ["Julian Zhang <zhangchunzhong@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-structopt = "0.2.18"
-hyper = "0.12"
-pretty_env_logger = "0.3.0"
-futures = "0.1.28"
