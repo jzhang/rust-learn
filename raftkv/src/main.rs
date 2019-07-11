@@ -2,11 +2,10 @@
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-extern crate hyper;
-
-use hyper::{Body, Request, Response, Server, Method, StatusCode};
-use hyper::rt::Future;
-use hyper::service::service_fn_ok;
+use hyperdrive::{FromRequest, body::Json, service::SyncService};
+use hyper::{Server, Body};
+use http::{Response};
+use serde::Deserialize;
 
 #[derive(StructOpt, Debug)]
 struct Opt {
@@ -30,25 +29,35 @@ struct Opt {
     dir: PathBuf,
 }
 
+#[derive(FromRequest)]
+enum Route { 
+    #[get("/key/{key}")]
+    GetKey {
+        key: String,
+    },
 
-fn kvstore(req: Request<Body>) -> Response<Body> {
-    match (req.method(), req.uri().path()) {
-        (&Method::GET,   "/key") => {
-            Response::new(Body::from("get key"))
-        },
-        (&Method::POST, "/key") => {
-            Response::new(Body::from("set key"))
-        },
-        (&Method::POST, "/join") => {
-            Response::new(Body::from("join"))
-        },
-        _ => {
-            Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(Body::from("not found"))
-                .unwrap()
-        },
-    }
+    #[post("/key")]
+    SetKey {
+        #[body]
+        data: Json<KvPair>,
+    },
+    #[post("/join")]
+    Join {
+        #[body]
+        data: Json<JoinPeer>,
+    },
+}
+
+#[derive(Deserialize)]
+struct KvPair {
+    key: String,
+    val: String,
+}
+
+#[derive(Deserialize)]
+struct JoinPeer {
+    id: String,
+    addr: String,
 }
 
 fn main() {
@@ -57,15 +66,19 @@ fn main() {
     let opt = Opt::from_args();
     println!("{:?}", opt);
 
-    let addr = opt.haddr.parse().unwrap();    
-    
-    let new_svc = || {
-        service_fn_ok(kvstore)
-    };
-
-    let server = Server::bind(&addr)
-        .serve(new_svc)
-        .map_err(|e| eprintln!("server error: {}", e));
-
-    hyper::rt::run(server);   
+    let server = Server::bind(&(opt.haddr).parse().unwrap())
+        .serve(SyncService::new(|route: Route| {
+        
+        match route {
+            Route::GetKey { key } => {
+                Response::new(Body::from(format!("key is #{}", key)))
+            }
+            Route::SetKey { data } => {
+                Response::new(Body::from(format!("#{} : #{} ", data.key, data.val )))
+            }
+            Route::Join { data } => {
+                Response::new(Body::from(format!("nodeID = #{}, addr = #{}", data.id, data.addr)))
+            }
+        }
+    }));
 }
