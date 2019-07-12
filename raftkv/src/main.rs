@@ -32,9 +32,9 @@ struct Opt {
 
 #[derive(FromRequest)]
 enum Route { 
-    #[get("/key/{key}")]
+    #[get("/key/{k}")]
     GetKey {
-        key: String,
+        k: String,
     },
 
     #[post("/key")]
@@ -51,8 +51,8 @@ enum Route {
 
 #[derive(Deserialize)]
 struct KvPair {
-    key: String,
-    val: String,
+    k: String,
+    v: String,
 }
 
 #[derive(Deserialize)]
@@ -71,14 +71,14 @@ fn main() {
         .serve(SyncService::new(|route: Route| {
         
         match route {
-            Route::GetKey { key } => {
-                Response::new(Body::from(format!("key is #{}", key)))
+            Route::GetKey { k } => {
+                Response::new(Body::from(format!("key = {}", k)))
             }
             Route::SetKey { data } => {
-                Response::new(Body::from(format!("#{} : #{} ", data.key, data.val )))
+                Response::new(Body::from(format!("{} : {} ", data.k, data.v )))
             }
             Route::Join { data } => {
-                Response::new(Body::from(format!("nodeID = #{}, addr = #{}", data.id, data.addr)))
+                Response::new(Body::from(format!("nodeID = {}, addr = {}", data.id, data.addr)))
             }
         }
     }));
