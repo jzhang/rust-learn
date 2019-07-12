@@ -5,6 +5,7 @@ use structopt::StructOpt;
 use hyperdrive::{FromRequest, body::Json, service::SyncService};
 use hyper::{Server, Body};
 use http::{Response};
+use futures::prelude::*;
 use serde::Deserialize;
 
 #[derive(StructOpt, Debug)]
@@ -66,7 +67,7 @@ fn main() {
     let opt = Opt::from_args();
     println!("{:?}", opt);
 
-    let server = Server::bind(&(opt.haddr).parse().unwrap())
+    let srv = Server::bind(&(opt.haddr).parse().unwrap())
         .serve(SyncService::new(|route: Route| {
         
         match route {
@@ -81,4 +82,9 @@ fn main() {
             }
         }
     }));
+    
+    tokio::run(srv.map_err(|e| {
+        panic!("unexpected error: {}", e);
+    }));
+
 }
