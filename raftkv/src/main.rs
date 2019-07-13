@@ -1,90 +1,49 @@
-
-use std::path::PathBuf;
 use structopt::StructOpt;
 
-use hyperdrive::{FromRequest, body::Json, service::SyncService};
-use hyper::{Server, Body};
-use http::{Response};
 use futures::prelude::*;
-use serde::Deserialize;
+use http::{Response, StatusCode};
+use hyper::{Body, Server};
+use hyperdrive::{service::SyncService};
+use std::net::{SocketAddr, ToSocketAddrs};
 
-#[derive(StructOpt, Debug)]
-struct Opt {
-    /// Set Unique Node ID
-    #[structopt(long = "id")]
-    id: String,
-    /// Set HTTP bind Address
-    #[structopt(long = "haddr", default_value = ":11000")]
-    haddr: String,
-    /// Set Raft bind Address
-    #[structopt(long = "raddr", default_value = ":12000")]
-    raddr: String,
-    /// Set Join Address, If any
-    #[structopt(long = "join")]
-    join: String,
-    /// Use in-memory storage for Raft
-    #[structopt(long = "inmem", short = "m")]
-    inmem: bool,
-    // Raft DIR
-    #[structopt(parse(from_os_str))]
-    dir: PathBuf,
-}
+mod opt;
+use self::opt::Opt;
 
-#[derive(FromRequest)]
-enum Route { 
-    #[get("/key/{k}")]
-    GetKey {
-        k: String,
-    },
+mod route;
+use self::route::Route;
 
-    #[post("/key")]
-    SetKey {
-        #[body]
-        data: Json<KvPair>,
-    },
-    #[post("/join")]
-    Join {
-        #[body]
-        data: Json<JoinPeer>,
-    },
-}
-
-#[derive(Deserialize)]
-struct KvPair {
-    k: String,
-    v: String,
-}
-
-#[derive(Deserialize)]
-struct JoinPeer {
-    id: String,
-    addr: String,
-}
+mod engine;
+use self::engine::SimpleDB;
 
 fn main() {
     pretty_env_logger::init();
 
     let opt = Opt::from_args();
     println!("{:?}", opt);
-
-    let srv = Server::bind(&(opt.haddr).parse().unwrap())
-        .serve(SyncService::new(|route: Route| {
-        
-        match route {
-            Route::GetKey { k } => {
-                Response::new(Body::from(format!("key = {}", k)))
-            }
-            Route::SetKey { data } => {
-                Response::new(Body::from(format!("{} : {} ", data.k, data.v )))
-            }
-            Route::Join { data } => {
-                Response::new(Body::from(format!("nodeID = {}, addr = {}", data.id, data.addr)))
-            }
-        }
-    }));
     
+    let db = SimpleDB::open(opt.dir, opt.inmem).unwrap();
+    
+    let srv =
+        Server::bind(&(opt.haddr).parse().unwrap()).serve(SyncService::new(|route: Route| {
+            match route {
+                Route::GetKey { k } => { 
+                    Response::new(Body::from(format!("get key = {}", k)))
+                }
+                Route::DelKey { k } => { 
+
+                    Response::new(Body::from(format!("del key = {}", k)))     
+                }
+                Route::SetKey { data } => {
+                    Response::new(Body::from(format!("set {} : {} ", data.k, data.v)))
+                }
+                Route::Join { data } => {
+                    Response::new(Body::from(format!(
+                        "nodeID = {}, addr = {}",
+                        data.id, data.addr
+                    )))}
+            }
+        }));
     tokio::run(srv.map_err(|e| {
         panic!("unexpected error: {}", e);
     }));
-
 }
