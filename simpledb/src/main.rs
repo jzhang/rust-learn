@@ -15,16 +15,20 @@ impl KvStore {
             inmem: mem,
         }
     }
-    pub fn put(&self, key: &[u8], data: &[u8]) -> Result<(),Error> {
+    pub fn put(&mut self, key: &[u8], data: &[u8]) -> Result<(),Error> {
+        self.map.insert(key.to_owned(), data.to_owned());
         Ok(())
     }
     pub fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-        Some(vec![0u8,1,2,3])
+       match self.map.get(&key.to_owned()) {
+           Some(v) => Some(v.to_vec()),
+           None => None
+       }
     }
 }
 
 fn main() {  
-    let kv = KvStore::open(false);
+    let mut kv = KvStore::open(false);
 
     let r = false;
     match r {
@@ -33,8 +37,12 @@ fn main() {
             println!("true");
         }
         false => {
-            kv.get(b"abcd");
-            println!("false");
+            kv.put(b"abcd", b"efgh").unwrap();
+            let r = kv.get(b"abcd");
+            match r {
+                Some(v) => println!("{:?}", String::from_utf8(v).unwrap()),
+                None => println!("None")
+            }
         }
     }
 }
