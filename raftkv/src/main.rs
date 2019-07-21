@@ -1,49 +1,76 @@
-use structopt::StructOpt;
+extern crate actix_web;
+extern crate serde_derive;
 
-use futures::prelude::*;
-use http::{Response, StatusCode};
-use hyper::{Body, Server};
-use hyperdrive::{service::SyncService};
-use std::net::{SocketAddr, ToSocketAddrs};
+use structopt::StructOpt;
 
 mod opt;
 use self::opt::Opt;
 
-mod route;
-use self::route::Route;
+use actix_web::{web, App, middleware, HttpRequest, HttpResponse, HttpServer, Responder};
+use serde_derive::{Deserialize, Serialize};
 
-mod engine;
-use self::engine::SimpleDB;
+#[derive(Debug, Serialize, Deserialize)]
+struct KVP {
+    k: String,
+    v: String, 
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct JOIN {
+    id: u64,
+    addr: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct MyObj {
+    name: String,
+    number: i32,
+}
+
+fn index(item: web::Json<MyObj>) -> HttpResponse {
+    println!("model: {:?}", &item);
+    HttpResponse::Ok().json(item.0) // <- send response
+}
+
+fn get_key(req: HttpRequest) -> impl Responder {
+    let name = req.match_info().get("name").unwrap_or("World");
+    format!("Get key {}!", &name)
+}
+
+fn del_key(req: HttpRequest) -> impl Responder {
+    let name = req.match_info().get("name").unwrap_or("World");
+    format!("Del Key {}!", &name)
+}
+
+fn set_key(item: web::Json<KVP>) -> HttpResponse {
+    println!("model: {:?}", item);
+
+    HttpResponse::Ok().json(item.0)
+}
+
+fn join(item: web::Json<JOIN>) -> HttpResponse {
+    println!("model: {:?}", item);
+    HttpResponse::Ok().json(item.0)
+}
 
 fn main() {
+    std::env::set_var("RUST_LOG", "actix_web=debug");
     pretty_env_logger::init();
 
     let opt = Opt::from_args();
     println!("{:?}", opt);
-    
-    let db = SimpleDB::open(opt.dir, opt.inmem).unwrap();
-    
-    let srv =
-        Server::bind(&(opt.haddr).parse().unwrap()).serve(SyncService::new(|route: Route| {
-            match route {
-                Route::GetKey { k } => { 
-                    Response::new(Body::from(format!("get key = {}", k)))
-                }
-                Route::DelKey { k } => { 
 
-                    Response::new(Body::from(format!("del key = {}", k)))     
-                }
-                Route::SetKey { data } => {
-                    Response::new(Body::from(format!("set {} : {} ", data.k, data.v)))
-                }
-                Route::Join { data } => {
-                    Response::new(Body::from(format!(
-                        "nodeID = {}, addr = {}",
-                        data.id, data.addr
-                    )))}
-            }
-        }));
-    tokio::run(srv.map_err(|e| {
-        panic!("unexpected error: {}", e);
-    }));
+    HttpServer::new(|| {
+        App::new()
+            .wrap(middleware::Logger::default())
+            .route("/key/{name}", web::get().to(get_key))
+            .route("/key/{name}", web::delete().to(del_key))
+            .route("/key",        web::post().to(set_key))
+            .route("/join",       web::post().to(join))
+            .route("/",           web::post().to(index))
+    })
+    .bind(opt.haddr)
+    .expect("Can not bind to address")
+    .run()
+    .unwrap();
 }
