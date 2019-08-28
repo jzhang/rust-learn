@@ -1,5 +1,4 @@
 #[macro_use]
-extern crate clap;
 
 #[cfg(feature = "yaml")]
 fn main() {
