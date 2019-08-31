@@ -1,6 +1,6 @@
 #[macro_use]
+extern crate clap;
 
-#[cfg(feature = "yaml")]
 fn main() {
     use clap::App;
 
@@ -16,11 +16,4 @@ fn main() {
     } else {
         println!("--mode <MODE> wasn't used...");
     }
-}
-
-#[cfg(not(feature = "yaml"))]
-fn main() {
-    // As stated above, if clap is not compiled with the YAML feature, it is disabled.
-    println!("YAML feature is disabled.");
-    println!("Pass --features yaml to cargo when trying this example.");
 }

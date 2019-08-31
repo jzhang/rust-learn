@@ -1,11 +1,9 @@
 [package]
-name = "meow"
+name = "wasi-demo"
 version = "0.1.0"
 authors = ["Julian Zhang <zhangchunzhong@gmail.com>"]
 edition = "2018"
 
-[features]
-
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = {version = "~2.27.0", features = ["yaml"]}
